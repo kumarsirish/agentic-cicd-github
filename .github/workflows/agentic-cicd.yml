@@ -1,0 +1,62 @@
+name: Agentic CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  agentic-pipeline:
+    runs-on: ubuntu-latest
+
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Stage 1: Install Dependencies
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      # Stage 2: Build
+      - name: Build (Compile Check)
+        run: python -m py_compile app.py
+
+      # Stage 3: Test
+      - name: Test
+        run: pytest app.py > test-results.log || true
+
+      # Stage 4: LangChain Agent Analysis
+      - name: LangChain Agent Analysis
+        run: python ai_agent.py
+
+      # Stage 5: Decision Gate
+      - name: Decision Gate
+        run: |
+          DECISION=$(cat decision.txt | tr -d '[:space:]')
+          echo "Agent Decision: $DECISION"
+
+          if [ "$DECISION" = "STOP" ]; then
+            echo "❌ Agent blocked deployment due to test failures."
+            exit 1
+          elif [ "$DECISION" = "RETRY" ]; then
+            echo "🔁 Agent requested retry. Re-running tests..."
+            pytest app.py || exit 1
+          elif [ "$DECISION" = "GO" ]; then
+            echo "✅ Agent approved deployment."
+          else
+            echo "⚠️ Unknown decision: $DECISION. Blocking deployment."
+            exit 1
+          fi
+
+      # Stage 6: Deploy
+      - name: Deploy
+        run: bash deploy.sh
