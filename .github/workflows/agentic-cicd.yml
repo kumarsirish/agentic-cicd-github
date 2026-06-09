@@ -9,6 +9,7 @@ on:
 jobs:
   agentic-pipeline:
     runs-on: ubuntu-latest
+    environment: my-secrets
 
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -20,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       # Stage 1: Install Dependencies
       - name: Install Dependencies
