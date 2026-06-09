@@ -74,7 +74,15 @@ if __name__ == "__main__":
         "messages": [{"role": "user", "content": prompt}]
     })
 
-    raw_output = response["messages"][-1].content.strip()
+    content = response["messages"][-1].content
+    if isinstance(content, list):
+        raw_output = " ".join(
+            part["text"] if isinstance(part, dict) and "text" in part else str(part)
+            for part in content
+        )
+    else:
+        raw_output = content
+    raw_output = raw_output.strip()
 
     decision = "STOP"
     for word in ["GO", "RETRY", "STOP"]:
