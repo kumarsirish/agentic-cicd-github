@@ -1,7 +1,6 @@
-from langchain.agents import create_react_agent, AgentExecutor
+from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain import hub
 from dotenv import load_dotenv
 import os
 
@@ -15,7 +14,7 @@ def read_logs(log_path: str) -> str:
 
 @tool
 def retry_recommendation(error_text: str) -> str:
-    """Check whether a retry is useful based on the error text."""
+    """Check whether retry is useful based on the error text."""
     flaky_keywords = [
         "timeout",
         "connection",
@@ -42,26 +41,16 @@ tools = [
     retry_recommendation
 ]
 
-prompt = hub.pull("hwchase17/react")
-
-agent = create_react_agent(
-    llm=llm,
-    tools=tools,
-    prompt=prompt
+agent = create_agent(
+    model=llm,
+    tools=tools
 )
 
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    verbose=True,
-    handle_parsing_errors=True
-)
-
-task = '''
+prompt = '''
 You are a CI/CD agent.
 
-1. Read the file test-results.log using the read_logs tool
-2. Analyze the content and determine if deployment should proceed
+1. Read test-results.log using the read_logs tool
+2. Determine if deployment should proceed
 3. Use retry_recommendation tool if you detect errors
 
 Rules:
@@ -81,11 +70,12 @@ if __name__ == "__main__":
         print("Agent Decision:", decision)
         raise SystemExit(0)
 
-    response = agent_executor.invoke({"input": task})
+    response = agent.invoke({
+        "messages": [{"role": "user", "content": prompt}]
+    })
 
-    raw_output = response.get("output", "").strip()
+    raw_output = response["messages"][-1].content.strip()
 
-    # Extract the final decision word (GO, RETRY, or STOP)
     decision = "STOP"
     for word in ["GO", "RETRY", "STOP"]:
         if word in raw_output.upper():
